@@ -1,0 +1,48 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+
+build_live:
+  stage: build
+  script:
+  - >
+    sed -i "s#baseURL: https://.*\.linuxtage\.at/#baseURL: https://www.linuxtage\.at/#" config.yaml
+  - hugo --minify
+  artifacts:
+    paths:
+      - public/
+    expire_in: 2 hours
+  except:
+  - main
+
+deploy_live:
+  stage: deploy
+  script:
+  - egrep -lRZe 'XXVERSIONXX' public | xargs -0 -l sed -i -e "s/XXVERSIONXX/${CI_COMMIT_SHA:0:9}/g"
+  - rsync -e "ssh -i ~/.ssh/gitlab_www_push_live" -azvh --progress --delete public/ root@linuxtage.at:/var/www/glt/glt25
+  only:
+  - glt25
+
+build_staging:
+  stage: build
+  script:
+  - >
+    sed -i "s#baseURL: https://.*\.linuxtage\.at/#baseURL: https://stage.linuxtage\.at/#" config.yaml
+  - hugo
+  artifacts:
+    paths:
+      - public/
+    expire_in: 2 hours
+  only:
+  - main
+
+deploy_staging:
+  stage: deploy
+  script:
+  - egrep -lRZe 'XXVERSIONXX' public | xargs -0 -l sed -i -e "s/XXVERSIONXX/${CI_COMMIT_SHA:0:9}/g"
+  - rsync -e "ssh -i ~/.ssh/gitlab_www_push_stage" -azvh --progress --delete public/ root@linuxtage.at:/var/www/glt/stage
+  only:
+  - main
